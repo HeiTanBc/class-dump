@@ -16,5 +16,13 @@
 @property (strong) NSArray *instanceVariables;
 @property (assign) BOOL isExported;
 @property (assign) BOOL isSwiftClass;
+@property (nonatomic) uint64 classAddress;
+@property (nonatomic) uint64 metaClassAddress;
+@property (nonatomic) uint64 classRoAddress;
+@property (nonatomic) uint64 metaClassRoAddress;
+@property (nonatomic) uint64 instanceMethodsAddress;
+@property (nonatomic) uint64 protocolsAddress;
+@property (nonatomic) uint64 instanceIvarAddress;
+@property (nonatomic) uint64 propertiesAddress;
 
 @end

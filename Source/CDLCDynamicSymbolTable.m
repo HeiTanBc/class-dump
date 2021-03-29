@@ -11,7 +11,6 @@
 
 @implementation CDLCDynamicSymbolTable
 {
-    struct dysymtab_command _dysymtab;
     
     NSArray *_externalRelocationEntries;
 }

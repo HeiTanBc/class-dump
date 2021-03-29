@@ -259,6 +259,28 @@
     CDOCClass *aClass = [[CDOCClass alloc] init];
     [aClass setName:str];
     
+    [aClass setClassAddress:address];
+    [aClass setClassRoAddress:objc2Class.data];
+    [aClass setMetaClassAddress:objc2Class.isa];
+    
+    // for mata class
+    [cursor setAddress:objc2Class.isa];
+    struct cd_objc2_class metaObjc2Class;
+    metaObjc2Class.isa        = [cursor readPtr];
+    metaObjc2Class.superclass = [cursor readPtr];
+    metaObjc2Class.cache      = [cursor readPtr];
+    metaObjc2Class.vtable     = [cursor readPtr];
+    uint64_t metaValue        = [cursor readPtr];
+    metaObjc2Class.data       = metaValue & ~7;
+
+    [aClass setMetaClassRoAddress:metaObjc2Class.data];
+    [aClass setInstanceMethodsAddress:objc2ClassData.baseMethods];
+    [aClass setProtocolsAddress:objc2ClassData.baseProtocols];
+    [aClass setInstanceIvarAddress:objc2ClassData.ivars];
+    [aClass setPropertiesAddress:objc2ClassData.baseProperties];
+    
+//    CDMachOFileDataCursor *metaCursor = [[CDMachOFileDataCursor alloc] initWithFile:self.machOFile address:objc2Class.isa];
+
     for (CDOCMethod *method in [self loadMethodsAtAddress:objc2ClassData.baseMethods])
         [aClass addInstanceMethod:method];
     
@@ -397,18 +419,40 @@
         //NSLog(@"method list data offset: %lu", [cursor offset]);
         
         struct cd_objc2_list_header listHeader;
+        static const uint32_t smallMethodListFlag = 0x80000000;
+        uint32_t FlagMask = 0xffff0003;
         
         // See getEntsize() from http://www.opensource.apple.com/source/objc4/objc4-532.2/runtime/objc-runtime-new.h
-        listHeader.entsize = [cursor readInt32] & ~(uint32_t)3;
+        unsigned int entsizeAndFlags = [cursor readInt32];
+        bool isSmallMethod = entsizeAndFlags & smallMethodListFlag;
+        listHeader.entsize = entsizeAndFlags & ~FlagMask;
         listHeader.count   = [cursor readInt32];
-        NSParameterAssert(listHeader.entsize == 3 * [self.machOFile ptrSize]);
         
+        UInt64 methodListArrayBaseVMAddr = address + 0x8;
+        CDSection * meth_name_section = [[self.machOFile segmentWithName:@"__TEXT"] sectionWithName:@"__objc_methname"];
         for (uint32_t index = 0; index < listHeader.count; index++) {
+            uint64_t methodVMAddr = methodListArrayBaseVMAddr + index * listHeader.entsize;
             struct cd_objc2_method objc2Method;
+            if(isSmallMethod) {
+                uint64_t name_address = [cursor readInt32];
+                name_address = (int)name_address  + methodVMAddr;
+                if(![meth_name_section containsAddress:name_address]){
+                    CDMachOFileDataCursor *name_cursor = [[CDMachOFileDataCursor alloc] initWithFile:self.machOFile address:name_address];
+                    name_address = [name_cursor readPtr];
+                }
+                objc2Method.name  = name_address;
+                
+                uint64_t type_address = [cursor readInt32];
+                objc2Method.types = (int)type_address + methodVMAddr + 0x4;
+                
+                uint64_t imp_address = [cursor readInt32];
+                objc2Method.imp   = (int)imp_address + methodVMAddr + 0x8;
+            } else {
+                objc2Method.name  = [cursor readPtr];
+                objc2Method.types = [cursor readPtr];
+                objc2Method.imp   = [cursor readPtr];
+            }
             
-            objc2Method.name  = [cursor readPtr];
-            objc2Method.types = [cursor readPtr];
-            objc2Method.imp   = [cursor readPtr];
             NSString *name    = [self.machOFile stringAtAddress:objc2Method.name];
             NSString *types   = [self.machOFile stringAtAddress:objc2Method.types];
             

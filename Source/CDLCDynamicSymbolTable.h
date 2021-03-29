@@ -9,6 +9,7 @@
 
 @interface CDLCDynamicSymbolTable : CDLoadCommand
 
+@property struct dysymtab_command dysymtab;
 - (void)loadSymbols;
 
 - (CDRelocationInfo *)relocationEntryWithOffset:(NSUInteger)offset;
