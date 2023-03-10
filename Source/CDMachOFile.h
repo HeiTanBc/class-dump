@@ -47,6 +47,8 @@ typedef enum : NSUInteger {
 @property (strong) CDLCBuildVersion *buildVersion;
 
 @property (readonly) BOOL uses64BitABI;
+
+- (NSUInteger) maskedAddress:(uint64_t)address;
 - (NSUInteger)ptrSize;
 
 - (NSString *)filetypeDescription;

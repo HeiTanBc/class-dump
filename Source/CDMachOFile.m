@@ -203,6 +203,36 @@ static NSString *CDMachOFileMagicNumberDescription(uint32_t magic)
 
 #pragma mark -
 
+- (NSUInteger) getTextVmaddr {
+    for (CDLCSegment *seg in self.segments) {
+        if ([seg.name isEqualTo:@"__TEXT"])
+            return seg.vmaddr;
+    }
+}
+
+- (NSUInteger) maskedAddress:(uint64_t)address
+{
+    if (self.uses64BitABI) {
+        if (address & 0x8000000000000000ULL) return 0x0;
+        if (self.cputype == CPU_TYPE_ARM64) {
+            // arm64
+            address = 0x0000000fffffffffULL & address;
+        } else {
+            // x86_64
+            address = 0x00007fffffffffffULL & address;
+        }
+    } else {
+        if (address & 0x80000000ULL) return 0x0;
+        address = 0xffffffffULL & address;
+    }
+    NSUInteger textVmaddr = [self getTextVmaddr];
+//    printf("%016lx %016lx\n",textVmaddr, address);
+    if (address != 0 && address < textVmaddr) {
+        address = address + textVmaddr;
+    }
+    return address;
+}
+
 - (cpu_type_t)maskedCPUType;
 {
     return self.cputype & ~CPU_ARCH_MASK;
